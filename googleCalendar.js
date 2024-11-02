@@ -34,42 +34,96 @@ async function loadSavedCredentialsIfExist() {
  * @return {Promise<void>}
  */
 async function saveCredentials(client) {
-  const content = await fs.readFile(CREDENTIALS_PATH);
-  const keys = JSON.parse(content);
-  const key = keys.installed || keys.web;
-  const payload = JSON.stringify({
-    type: 'authorized_user',
-    client_id: key.client_id,
-    client_secret: key.client_secret,
-    refresh_token: client.credentials.refresh_token,
-  });
-  await fs.writeFile(TOKEN_PATH, payload);
+  try {
+    const content = await fs.readFile(CREDENTIALS_PATH);
+    console.log('Archivo credentials.json cargado correctamente.');
+    const keys = JSON.parse(content);
+    const key = keys.installed || keys.web;
+    const payload = JSON.stringify({
+      type: 'authorized_user',
+      client_id: key.client_id,
+      client_secret: key.client_secret,
+      refresh_token: client.credentials.refresh_token,
+    });
+    await fs.writeFile(TOKEN_PATH, payload);
+    console.log('Credenciales guardadas correctamente en token.json');
+  } catch (err) {
+    console.error('Error al cargar credentials.json: ', err);
+  }
 }
 
 /**
  * Load or request or authorization to call APIs.
  *
  */
+let accessTokenCache = {
+  client: null,
+  expiryDate: null,
+};
+
 export async function authorize() {
-  let client = await loadSavedCredentialsIfExist();
-  if (client) {
-    return client;
+  const currentTime = Date.now();
+
+  // Log para verificar si estamos entrando en la sección de caché
+  if (accessTokenCache.client && accessTokenCache.expiryDate > currentTime) {
+    console.log("Usando cliente en caché. Expira en:", new Date(accessTokenCache.expiryDate).toLocaleTimeString());
+    return accessTokenCache.client;
   }
+
+  console.log("No se está usando el caché, cargando credenciales...");
+
+  let client = await loadSavedCredentialsIfExist();
+
+  if (client && client.credentials.refresh_token) {
+    try {
+      const tokenInfo = await client.getAccessToken();
+      console.log("Token renovado exitosamente:", tokenInfo.token);
+
+      // Almacena en caché el cliente y la fecha de expiración
+      accessTokenCache.client = client;
+      accessTokenCache.expiryDate = Date.now() + (60 * 60 * 1000); // Una hora a partir de ahora
+
+      console.log("Cliente almacenado en caché. Expira en:", new Date(accessTokenCache.expiryDate).toLocaleTimeString());
+
+      // Guarda las credenciales solo si el token fue renovado
+      if (tokenInfo.token) {
+        await saveCredentials(client);
+      }
+
+      return client;
+    } catch (error) {
+      console.error("Error al renovar token con refresh_token:", error);
+    }
+  }
+
+  console.log('No se encontró cliente autorizado o el refresh_token es inválido. Iniciando proceso de autenticación...');
   client = await authenticate({
     scopes: SCOPES,
     keyfilePath: CREDENTIALS_PATH,
   });
+
   if (client.credentials) {
+    console.log('Guardando credenciales...');
     await saveCredentials(client);
   }
+
+  // Almacena el nuevo cliente en caché
+  accessTokenCache.client = client;
+  accessTokenCache.expiryDate = Date.now() + (60 * 60 * 1000);
+
+  console.log("Nuevo cliente autenticado almacenado en caché. Expira en:", new Date(accessTokenCache.expiryDate).toLocaleTimeString());
+
   return client;
 }
 
+
+
+
 /**
- * Lists the next 10 events on the user's primary calendar.
+ * Lists the next 5 events on the user's primary calendar.
  * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
  */
-/* async function listEvents(auth) {
+ async function listEvents(auth) {
   const calendar = google.calendar({ version: 'v3', auth });
   const timeMin = new Date();
 
@@ -85,6 +139,7 @@ export async function authorize() {
       timeMax: timeMax.toISOString(),
       singleEvents: true,
       orderBy: 'startTime',
+      maxResults: 5,
     });
 
     const events = res.data.items;
@@ -102,7 +157,7 @@ export async function authorize() {
   } catch (error) {
     console.error('Error fetching events:', error);
   }
-} */
+} 
 
 
-// authorize().then(listEvents).catch(console.error);
+authorize().then(listEvents).catch(console.error);

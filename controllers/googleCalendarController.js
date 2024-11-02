@@ -13,28 +13,19 @@ export async function createCalendarEvent(appointment, user) {
     time = time.padStart(5, '0');
   }
 
-  // Combina la fecha y la hora para crear el objeto Date
-  const startDateTime = new Date(`${date}T${time}:00`);
-
-  // Validar que startDateTime sea una fecha válida
-  if (isNaN(startDateTime.getTime())) {
-    console.error('La combinación de fecha y hora no es válida:', startDateTime);
-    throw new Error('La combinación de fecha y hora no es válida');
-  }
-
-  // Define la duración del evento (media hora)
-  const endDateTime = new Date(startDateTime.getTime() + 30 * 60 * 1000);
+  // Convierte la fecha y hora a UTC y luego suma 7 horas
+  const offset = 7 * 60 * 60 * 1000; // 7 horas en milisegundos
+  const startDateTime = new Date(new Date(`${date}T${time}:00Z`).getTime() + offset);
+  const endDateTime = new Date(startDateTime.getTime() + 30 * 60 * 1000); // Media hora después
 
   const event = {
     summary: `${user.company}`,
     description: `Trabajador: ${appointment.worker.workerName}\nPosición: ${appointment.worker.workerPosition}\nTeléfono: ${appointment.worker.workerPhone}\nNotas: ${appointment.worker.workerNotes}\nServicios: ${appointment.services.map(s => s.name).join(', ')}`,
     start: {
-      dateTime: startDateTime.toISOString(),
-      timeZone: 'Etc/GMT+7',
+      dateTime: startDateTime.toISOString()
     },
     end: {
-      dateTime: endDateTime.toISOString(),
-      timeZone: 'Etc/GMT+7',
+      dateTime: endDateTime.toISOString()
     },
   };
 
@@ -64,29 +55,20 @@ export async function updateCalendarEvent(appointment, user) {
       time = time.padStart(5, '0');
     }
 
-    // Combina la fecha y la hora para obtener la hora de inicio
-    const startDateTime = new Date(`${date}T${time}:00`);
-
-    // Validar que startDateTime sea una fecha válida
-    if (isNaN(startDateTime.getTime())) {
-      console.error('La combinación de fecha y hora no es válida:', startDateTime);
-      throw new Error('La combinación de fecha y hora no es válida');
-    }
-
-    // Define la duración del evento (media hora)
-    const endDateTime = new Date(startDateTime.getTime() + 30 * 60 * 1000);
+    // Convierte la fecha y hora a UTC y luego suma 7 horas
+    const offset = 7 * 60 * 60 * 1000; // 7 horas en milisegundos
+    const startDateTime = new Date(new Date(`${date}T${time}:00Z`).getTime() + offset);
+    const endDateTime = new Date(startDateTime.getTime() + 30 * 60 * 1000); // Media hora después
 
       // Información del evento que deseas actualizar
     const event = {
       summary: `${user.company}`,
       description: `Trabajador: ${appointment.worker.workerName}\nPosición: ${appointment.worker.workerPosition}\nTeléfono: ${appointment.worker.workerPhone}\nNotas: ${appointment.worker.workerNotes}\nServicios: ${appointment.services.map(s => s.name).join(', ')}`,
       start: {
-        dateTime: startDateTime.toISOString(),
-        timeZone: 'Etc/GMT+7',
+        dateTime: startDateTime.toISOString()
       },
       end: {
-        dateTime: endDateTime.toISOString(),
-        timeZone: 'Etc/GMT+7',
+        dateTime: endDateTime.toISOString()
       },
     };
 
@@ -168,4 +150,3 @@ export async function getCalendarEventsByDate(date) {
   }
 }
 
-  // Función para obtener eventos por fecha desde Google Calendar

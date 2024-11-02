@@ -30,7 +30,8 @@ const generateJWT = (id) => {
 }
 
 function formatDate(date) {
-    return format(date, 'PPPP', { locale: es })
+    // Asegura el uso del formato de fecha sin alterar la zona horaria
+    return format(new Date(date.getTime() + date.getTimezoneOffset() * 60 * 1000), 'PPPP', { locale: es });
 }
 
 

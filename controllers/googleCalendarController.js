@@ -31,7 +31,7 @@ export async function createCalendarEvent(appointment, user) {
 
   try {
     const response = await calendar.events.insert({
-      calendarId: 'primary',
+      calendarId: 'asesoria.medico.empresarial@gmail.com',
       resource: event,
     });
     // console.log('Evento creado en Google Calendar:', response.data);
@@ -80,7 +80,7 @@ export async function updateCalendarEvent(appointment, user) {
 
       // Usa el eventId del appointment para actualizar el evento en Google Calendar
       const response = await calendar.events.update({
-        calendarId: 'primary',
+        calendarId: 'asesoria.medico.empresarial@gmail.com',
         eventId: appointment.googleCalendarEventId,
         resource: event,
       });
@@ -106,7 +106,7 @@ export async function deleteCalendarEvent(appointment, user) {
 
     // Usa el eventId del appointment para borrar el evento en Google Calendar
     const response = await calendar.events.delete({
-      calendarId: 'primary',
+      calendarId: 'asesoria.medico.empresarial@gmail.com',
       eventId: appointment.googleCalendarEventId,
     });
 
@@ -130,7 +130,7 @@ export async function getCalendarEventsByDate(date) {
 
   try {
     const response = await calendar.events.list({
-      calendarId: 'primary',
+      calendarId: 'asesoria.medico.empresarial@gmail.com',
       timeMin: startDate.toISOString(),
       timeMax: endDate.toISOString(),
       singleEvents: true,

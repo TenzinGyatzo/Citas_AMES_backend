@@ -123,19 +123,31 @@ export async function getCalendarEventsByDate(date) {
   const auth = await authorize();
   const calendar = google.calendar({ version: 'v3', auth });
 
-  // Define la fecha de inicio y fin para consultar los eventos
-  const startDate = new Date(date);
-  const endDate = new Date(date);
-  endDate.setDate(endDate.getDate() + 1); // Un día después para obtener todo el día seleccionado
+  // Define la fecha de inicio y fin para consultar los eventos (Este es el que se usó durante mucho tiempo, al parecer llega hasta las 17:00)
+  // const startDate = new Date(date);
+  // const endDate = new Date(date);
+  // endDate.setDate(endDate.getDate() + 1); // Un día después para obtener todo el día seleccionado
+
+  // Ajustar para zona horaria (UTC-7)
+  const startDate = new Date(date + 'T00:00:00-07:00');
+  const endDate = new Date(date + 'T23:59:59-07:00');
+
+
 
   try {
+
     const response = await calendar.events.list({
       calendarId: 'asesoria.medico.empresarial@gmail.com',
       timeMin: startDate.toISOString(),
       timeMax: endDate.toISOString(),
       singleEvents: true,
       orderBy: 'startTime',
+      // Agregar parámetros para obtener más información
+      showDeleted: false,
+      showHiddenInvitations: false,
     });
+
+
 
     const events = response.data.items.map(event => ({
       start: event.start.dateTime || event.start.date,

@@ -7,7 +7,8 @@ import servicesRoutes from './routes/servicesRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import appointmentRoutes from './routes/appointmentRoutes.js';
 import userRoutes from './routes/userRoutes.js';
-import googleCalendarRoutes from './routes/googleCalendarRoutes.js'; 
+import googleCalendarRoutes from './routes/googleCalendarRoutes.js';
+import hourRulesRoutes from './routes/hourRulesRoutes.js'; 
 
 // Cargar variables de entorno
 dotenv.config();
@@ -49,6 +50,7 @@ app.use('/api/services', servicesRoutes)
 app.use('/api/auth', authRoutes)
 app.use('/api/appointments', appointmentRoutes)
 app.use('/api/users', userRoutes)
+app.use('/api/hour-rules', hourRulesRoutes)
 
 // Definir puerto
 const PORT = process.env.PORT || 4000;

@@ -8,7 +8,8 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "seed:import": "node data/seed.js --import",
-    "seed:destroy": "node data/seed.js --destroy"
+    "seed:destroy": "node data/seed.js --destroy",
+    "init:hour-rules": "node data/initHourRules.js"
   },
   "author": "Edgar Coronel",
   "license": "ISC",

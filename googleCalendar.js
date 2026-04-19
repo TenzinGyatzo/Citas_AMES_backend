@@ -1,6 +1,9 @@
 import { google } from 'googleapis';
 import { readFile } from 'fs/promises';
 
+let cachedClient = null;
+let authorizingPromise = null;
+
 /**
  * Función para autorizar usando la cuenta de servicio.
  * No requiere guardar ni renovar tokens, ya que utiliza un JWT.
@@ -8,20 +11,37 @@ import { readFile } from 'fs/promises';
  * @return {Promise<google.auth.JWT>}
  */
 export async function authorize() {
+  if (cachedClient) {
+    return cachedClient;
+  }
+
+  if (authorizingPromise) {
+    return authorizingPromise;
+  }
+
+  authorizingPromise = (async () => {
   // Ruta al archivo JSON descargado de la cuenta de servicio
-  const credentials = JSON.parse(await readFile('citas-ames-b1b0b41e4919.json'));
+    const credentials = JSON.parse(await readFile('citas-ames-b1b0b41e4919.json'));
 
-  const client = new google.auth.JWT(
-    credentials.client_email,
-    null,
-    credentials.private_key,
-    ['https://www.googleapis.com/auth/calendar']
-  );
+    const client = new google.auth.JWT(
+      credentials.client_email,
+      null,
+      credentials.private_key,
+      ['https://www.googleapis.com/auth/calendar']
+    );
 
-  // Autorizar al cliente para que pueda realizar solicitudes
-  await client.authorize();
-  console.log("Autorización exitosa con la cuenta de servicio.");
-  return client;
+    // Autorizar al cliente para que pueda realizar solicitudes
+    await client.authorize();
+    cachedClient = client;
+    console.log("Autorización inicial exitosa con la cuenta de servicio.");
+    return cachedClient;
+  })();
+
+  try {
+    return await authorizingPromise;
+  } finally {
+    authorizingPromise = null;
+  }
 }
 
 /**

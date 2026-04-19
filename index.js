@@ -24,17 +24,20 @@ db();
 
 // Configurar CORS
 const whiteList = [
-    process.env.FRONTEND_URL_DEV, 
+    process.env.FRONTEND_URL_DEV,
     process.env.FRONTEND_URL_IP,
     process.env.FRONTEND_URL_DOMAIN,
     process.env.FRONTEND_URL_DOMAIN_ALT,
-    ]; // Agregar 'undefined' para permitir peticiones desde Postman
+    'http://localhost:5173',
+    'https://localhost:5173',
+].filter(Boolean);
     
 const corsOptions = {
     origin: function (origin, callback) {
         if (!origin || whiteList.includes(origin)) {
             callback(null, true);
         } else {
+            console.error(`CORS bloqueado para origin: ${origin}`);
             callback(new Error('No permitido por CORS'));
         }
     },

@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import HourRules from '../models/HourRules.js';
+import HourRules, { createDefaultWeeklyRules } from '../models/HourRules.js';
 
 // Cargar variables de entorno
 dotenv.config();
@@ -39,6 +39,7 @@ const initHourRules = async () => {
     // Crear reglas por defecto
     const newRules = new HourRules({
       rules: defaultRules,
+      weeklyRules: createDefaultWeeklyRules(defaultRules),
       updatedBy: null // Se actualizará cuando se modifique desde la API
     });
 

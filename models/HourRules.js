@@ -1,15 +1,38 @@
 import mongoose from 'mongoose';
 
+const DEFAULT_RULES = {
+  "8:00": 1, "8:30": 1, "9:00": 1, "9:30": 1, "10:00": 1, "10:30": 1,
+  "11:00": 1, "11:30": 1, "12:00": 1, "12:30": 1, "13:00": 1, "13:30": 1,
+  "14:00": 1, "14:30": 1, "15:00": 1, "15:30": 1, "16:00": 1, "16:30": 1,
+  "17:00": 1, "17:30": 1
+};
+
+const WEEK_DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+const createDefaultWeeklyRules = (baseRules = DEFAULT_RULES) => {
+  const normalizedBase = { ...baseRules };
+  const weekly = {};
+
+  WEEK_DAYS.forEach((day) => {
+    weekly[day] = { ...normalizedBase };
+  });
+
+  return weekly;
+};
+
 const hourRulesSchema = new mongoose.Schema({
   rules: {
     type: Map,
     of: Number,
-    default: {
-      "8:00": 1, "8:30": 1, "9:00": 1, "9:30": 1, "10:00": 1, "10:30": 1,
-      "11:00": 1, "11:30": 1, "12:00": 1, "12:30": 1, "13:00": 1, "13:30": 1,
-      "14:00": 1, "14:30": 1, "15:00": 1, "15:30": 1, "16:00": 1, "16:30": 1,
-      "17:00": 1, "17:30": 1
-    }
+    default: DEFAULT_RULES
+  },
+  weeklyRules: {
+    type: Map,
+    of: {
+      type: Map,
+      of: Number
+    },
+    default: () => createDefaultWeeklyRules(DEFAULT_RULES)
   },
   updatedBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -33,18 +56,34 @@ hourRulesSchema.methods.getRulesObject = function() {
   return rulesObject;
 };
 
+hourRulesSchema.methods.getWeeklyRulesObject = function() {
+  const weeklyRulesObject = {};
+  const legacyRules = this.getRulesObject();
+
+  WEEK_DAYS.forEach((day) => {
+    const dayRules = this.weeklyRules?.get(day);
+    const dayRulesObject = {};
+
+    if (dayRules?.forEach) {
+      dayRules.forEach((value, key) => {
+        dayRulesObject[key] = value;
+      });
+    }
+
+    weeklyRulesObject[day] = Object.keys(dayRulesObject).length > 0 ? dayRulesObject : { ...legacyRules };
+  });
+
+  return weeklyRulesObject;
+};
+
 // Método estático para obtener las reglas actuales
 hourRulesSchema.statics.getCurrentRules = async function() {
   const currentRules = await this.findOne().sort({ createdAt: -1 });
   if (!currentRules) {
     // Crear reglas por defecto si no existen
     const defaultRules = new this({
-      rules: {
-        "8:00": 1, "8:30": 1, "9:00": 1, "9:30": 1, "10:00": 1, "10:30": 1,
-        "11:00": 1, "11:30": 1, "12:00": 1, "12:30": 1, "13:00": 1, "13:30": 1,
-        "14:00": 1, "14:30": 1, "15:00": 1, "15:30": 1, "16:00": 1, "16:30": 1,
-        "17:00": 1, "17:30": 1
-      },
+      rules: DEFAULT_RULES,
+      weeklyRules: createDefaultWeeklyRules(DEFAULT_RULES),
       updatedBy: null // Se actualizará cuando se cree desde la API
     });
     await defaultRules.save();
@@ -54,4 +93,5 @@ hourRulesSchema.statics.getCurrentRules = async function() {
   return currentRules;
 };
 
+export { DEFAULT_RULES, WEEK_DAYS, createDefaultWeeklyRules };
 export default mongoose.model('HourRules', hourRulesSchema); 

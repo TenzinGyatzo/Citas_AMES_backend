@@ -1,29 +1,54 @@
-import { parse, formatISO, startOfDay, endOfDay, isValid, subDays } from 'date-fns'
+import { parse, isValid } from 'date-fns'
+import { formatInTimeZone } from 'date-fns-tz'
 import Appointment from '../models/Appointment.js'
 import { validateObjectId, validateOjectExistence, formatDate } from '../utils/index.js';
 import { sendEmailNewAppointment, sendEmailUpdateAppointment, sendEmailCancelledAppointment } from '../emails/appointmentEmailService.js'
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from '../controllers/googleCalendarController.js';
+
+const BUSINESS_TIMEZONE = 'America/Hermosillo';
+
+async function findAppointmentsByCalendarDate(dateParam) {
+    const parsedDate = parse(dateParam, 'dd/MM/yyyy', new Date());
+
+    if (!isValid(parsedDate)) {
+        throw new Error('Fecha no válida');
+    }
+
+    const [day, month, year] = dateParam.split('/').map(Number);
+    const isoDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T00:00:00-07:00`;
+    const dateStr = formatInTimeZone(new Date(isoDate), BUSINESS_TIMEZONE, 'yyyy-MM-dd');
+    const start = new Date(`${dateStr}T00:00:00-07:00`);
+    const end = new Date(`${dateStr}T23:59:59.999-07:00`);
+    const legacyStart = new Date(start.getTime() - 24 * 60 * 60 * 1000);
+    const legacyEnd = new Date(end.getTime() + 24 * 60 * 60 * 1000);
+
+    const appointments = await Appointment.find({
+        date: { $gte: legacyStart, $lte: legacyEnd }
+    }).select('time _id date');
+
+    return appointments
+        .filter((apt) => {
+            if (!apt.date) return false;
+            return formatInTimeZone(apt.date, BUSINESS_TIMEZONE, 'yyyy-MM-dd') === dateStr;
+        })
+        .map(({ _id, time }) => ({ _id, time }));
+}
 
 const createAppointment = async (req, res) => {
     const appointment = req.body;
     appointment.user = req.user._id.toString();
 
     try {
-        // Guarda el appointment para poder hacer el populate correctamente
         const newAppointment = new Appointment(appointment);
         const result = await newAppointment.save();
 
-        // Realiza el populate de 'services' y 'worker' después de guardar el appointment
         const populatedAppointment = await Appointment.findById(result._id).populate('services');
 
-        // Crea el evento en Google Calendar y obtén el eventId
         const { id: eventId } = await createCalendarEvent(populatedAppointment, req.user);
 
-        // Guarda el eventId en el appointment ya guardado
         populatedAppointment.googleCalendarEventId = eventId;
         await populatedAppointment.save();
 
-        // Enviar el email de confirmación
         await sendEmailNewAppointment({
             company: req.user.company,
             workerName: populatedAppointment.worker.workerName,
@@ -41,41 +66,28 @@ const createAppointment = async (req, res) => {
 };
 
 const getAppointmentsByDate = async (req, res) => {
-    const { date } = req.query;
-
-    // Parseando la fecha desde el formato esperado dd/MM/yyyy
-    let newDate = parse(date, 'dd/MM/yyyy', new Date());
-
-    if (!isValid(newDate)) {
-        const error = new Error('Fecha no válida');
+    try {
+        const appointments = await findAppointmentsByCalendarDate(req.query.date);
+        res.json(appointments);
+    } catch (error) {
         return res.status(400).json({ msg: error.message });
     }
-
-    // Desfasar la fecha por -1 día
-    newDate = subDays(newDate, 1);
-
-    const start = startOfDay(newDate);
-    const end = endOfDay(newDate);
-
-    const appointments = await Appointment.find({
-        date: {
-            $gte: start,
-            $lte: end
-        }
-    }).select('time');
-
-    res.json(appointments);
 };
 
-
+const getOccupancyByDate = async (req, res) => {
+    try {
+        const appointments = await findAppointmentsByCalendarDate(req.query.date);
+        res.json(appointments.map(({ time }) => time).filter(Boolean));
+    } catch (error) {
+        return res.status(400).json({ msg: error.message });
+    }
+};
 
 const getAppointmentById = async (req, res) => {
     const id = req.params.id
 
-    // Validar por object id
     if(validateObjectId(id, res)) return
 
-    // Validar que el objeto exista
     const appointment = await Appointment.findById(id).populate('services')
     if(validateOjectExistence(appointment, res)) return
 
@@ -84,17 +96,14 @@ const getAppointmentById = async (req, res) => {
         return res.status(403).json({ msg: error.message })
     }
 
-    // Retornar la cita
     res.json(appointment)
 }
 
 const updateAppointment = async (req, res) => {
     const id = req.params.id
 
-    // Validar por object id
     if(validateObjectId(id, res)) return
 
-    // Validar que el objeto exista
     const appointment = await Appointment.findById(id).populate('services')
     if(validateOjectExistence(appointment, res)) return
 
@@ -130,16 +139,13 @@ const updateAppointment = async (req, res) => {
     } catch (error) {
         console.log(error);
     }
-    
 }
 
 const deleteAppointment = async (req, res) => {
     const id = req.params.id
 
-    // Validar por object id
     if(validateObjectId(id, res)) return
 
-    // Validar que el objeto exista
     const appointment = await Appointment.findById(id).populate('services')
     if(validateOjectExistence(appointment, res)) return
 
@@ -149,7 +155,6 @@ const deleteAppointment = async (req, res) => {
     }
 
     try {
-        // Guardar datos antes de borrar, para enviar el email de cancelación
         const workerName = appointment.worker.workerName
         const appointmentDate = formatDate(appointment.date)
         const appointmentTime = appointment.time
@@ -157,7 +162,6 @@ const deleteAppointment = async (req, res) => {
         await deleteCalendarEvent(appointment, req.user);
         
         await appointment.deleteOne()
-
 
         sendEmailCancelledAppointment({
             company: req.user.company,
@@ -175,6 +179,7 @@ const deleteAppointment = async (req, res) => {
 export {
     createAppointment,
     getAppointmentsByDate,
+    getOccupancyByDate,
     getAppointmentById,
     updateAppointment,
     deleteAppointment

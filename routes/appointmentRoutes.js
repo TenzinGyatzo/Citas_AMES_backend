@@ -1,12 +1,14 @@
 import express from 'express';
-import { createAppointment, getAppointmentsByDate, getAppointmentById, updateAppointment, deleteAppointment } from '../controllers/appointmentController.js';
+import { createAppointment, getAppointmentsByDate, getOccupancyByDate, getAppointmentById, updateAppointment, deleteAppointment } from '../controllers/appointmentController.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
 
+router.get('/occupancy-by-date', getOccupancyByDate);
+
 router.route('/')
     .post(authenticateToken, createAppointment)
-.get(authenticateToken, getAppointmentsByDate)
+    .get(authenticateToken, getAppointmentsByDate)
 
 router.route('/:id')
     .get(authenticateToken, getAppointmentById)
